@@ -1,7 +1,7 @@
 # Palmimo Portal がこのアプリを一覧に出し、設定フォームを作り、起動するための定義。
 # 仕様: https://github.com/Jizai-inc/palmimo-devkit/blob/main/doc/reference/app-manifest.md
 
-schema = 1
+schema = 2
 
 # アプリ名。英小文字・数字・ハイフン（先頭は英字、40 文字まで）。
 # 端末上の ID は「<入れた場所>.<name>」になる（GitHub なら owner 名、zip なら zip）。
@@ -33,3 +33,13 @@ description = "くり返す回数"
 # required = false
 # description = "外部サービスの API キー"
 # help_url = "https://example.com/api-keys"
+
+# 顔ディスプレイのアセットと、変更する Lottie スロットの例。
+# 書き方: README.md「顔ディスプレイにアセットを出す」。
+# [assets.welcome]
+# file = "assets/welcome.json"
+# description = "来場者を迎える笑顔"
+# tags = ["greeting"]
+#
+# [assets.welcome.params.eye_color]
+# description = "目の色（RGBA、各 0〜1）"
