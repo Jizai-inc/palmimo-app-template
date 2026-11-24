@@ -22,7 +22,7 @@ Palmimo DevKit で動かすアプリのテンプレートです。Palmimo Portal
 - git
 - 同じネットワークにある Palmimo DevKit と、その Portal にログインできるブラウザ
 
-このテンプレートには Portal **0.3.0 以降**と palmimo-sdk **0.2 以降**が必要です。
+このテンプレートには Portal **0.4.0 以降**と palmimo-sdk **0.2 以降**が必要です。
 古い Portal は schema 2 のアプリを「新しい版が必要」として扱い、インストールしません。
 
 ### テンプレートから自分のリポジトリを作る
