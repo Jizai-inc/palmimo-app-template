@@ -7,7 +7,7 @@ Palmimo DevKit で動かすアプリのテンプレートです。Palmimo Portal
 
 | ファイル | 役割 |
 |---|---|
-| `palmimo.toml` | Portal がアプリを一覧に出し、設定フォームを作り、起動するための定義（マニフェスト） |
+| `palmimo.toml` | Portal がアプリを一覧に出し、設定フォームを作り、起動するための定義（schema 2 のマニフェスト）。顔ディスプレイのアセット宣言例も含みます |
 | `main.py` | サンプル。Portal で設定した値をログに出すだけで、ハードウェアには触りません |
 | `.gitignore` | `.venv/` などをコミットしないための設定 |
 
@@ -21,6 +21,9 @@ Palmimo DevKit で動かすアプリのテンプレートです。Palmimo Portal
 - [uv](https://docs.astral.sh/uv/)
 - git
 - 同じネットワークにある Palmimo DevKit と、その Portal にログインできるブラウザ
+
+このテンプレートには Portal **0.4.0 以降**と palmimo-sdk **0.2 以降**が必要です。
+古い Portal は schema 2 のアプリを「新しい版が必要」として扱い、インストールしません。
 
 ### テンプレートから自分のリポジトリを作る
 
@@ -58,8 +61,9 @@ uv run python main.py --message "テスト" --repeat 2
 3. 必要なら `palmimo.toml` を書き換えます。
    - `command`: 起動するコマンド。アプリのディレクトリで `uv run` を通して実行されます。
    - `[params.*]`: Portal の画面から変えられる設定。`command` の中の `{名前}` が設定値に置き換わります。
-   - `devices`: サーボ（`motor_display`）、カメラ（`camera`）、マイク・スピーカー（`audio`）を使うときに宣言します。宣言しないデバイスはアプリから開けません。
+   - `devices`: サーボ・顔ディスプレイ（`motor_display`）、カメラ（`camera`）、マイク・スピーカー（`audio`）を使うときに宣言します。宣言しないデバイスはアプリから開けません。
    - `[env.*]`: API キーなどの秘密の値。値は Portal の「環境変数」画面で入れます。
+   - `[assets.*]`: 顔ディスプレイに出す画像やアニメーション。[顔ディスプレイにアセットを出す](#顔ディスプレイにアセットを出す)を参照してください。
 
    書き方の全体は [マニフェストの仕様](https://github.com/Jizai-inc/palmimo-devkit/blob/main/doc/reference/app-manifest.md)にあります。
 
@@ -72,6 +76,65 @@ git push
 ```
 
 `uv.lock` は必ずコミットしてください。Portal は `uv.lock` どおりに依存を入れるので、手元と DevKit で同じ版がそろいます。
+
+### 顔ディスプレイにアセットを出す
+
+自分の絵やアニメーションを使うときは、Lottie（`.json`）・GIF・PNG・JPEG のファイルを
+アプリのリポジトリに置きます。Portal はインストール時にファイルを変換し、変換できなければ
+インストールは失敗します。対応する Lottie の機能やサイズなどの制限は
+[palmimo-image のアセット仕様](https://github.com/Jizai-inc/palmimo-image/blob/main/doc/display-assets.md#変換器)を参照してください。
+アセットを使わなければ、テンプレートのコメント例を有効にする必要はありません。
+
+たとえば `assets/welcome.json` を置き、`palmimo.toml` に次のように宣言します。
+`schema` と `devices` は、既存のトップレベルの項目を書き換えてください（`[params.*]` などのテーブルより前に置きます）。
+
+```toml
+schema = 2
+devices = ["motor_display"]
+
+[assets.welcome]
+file = "assets/welcome.json"
+description = "来場者を迎える笑顔"
+tags = ["greeting"]
+
+[assets.welcome.params.eye_color]
+description = "目の色（RGBA、各 0〜1）"
+```
+
+`file` はアプリのディレクトリからの相対パスで、`..` やシンボリックリンクは使えません。
+`description` には、いつ使うアセットかをエージェントに伝える説明を書きます。
+`tags` は語彙を絞り込むための任意のタグです。
+`[assets.welcome.params.eye_color]` は、その Lottie にある `eye_color` スロットを実行時に変更する場合だけ宣言します。
+別のスロット名ならそれに合わせ、スロットを使わない Lottie や GIF・PNG・JPEG ではこのテーブルを省きます。
+宣言していないスロットは既定値のままで、エージェントには提示されません。
+
+Portal から起動したアプリでは、環境変数 `PALMIMO_APP_ID` に端末上のアプリ ID が入ります。
+アプリのアセット ID は `<アプリ ID>/<name>`（例: `zip.my-app/welcome`）です。
+上の宣言を使って、`main.py` から再生する最小の例です。
+
+```python
+import os
+import time
+
+from palmimo_sdk import FaceDisplay
+
+display = FaceDisplay()
+display.connect()
+try:
+    display.play(f"{os.environ['PALMIMO_APP_ID']}/welcome", hold_ms=2000)
+    time.sleep(2)
+finally:
+    display.disconnect()
+```
+
+`play(id, hold_ms=None)` はアセットをループ再生し、正の整数の `hold_ms` を指定すると
+そのミリ秒数の後に待機画面へ戻ります。省略すると次の表示コマンドまで再生します。
+標準アセットも `display.play("palmimo/happy", hold_ms=2000)` のように再生でき、`[assets.*]` への宣言は不要です。
+どちらの再生にも `devices = ["motor_display"]` の宣言が必要です。
+エージェント向けには `play_asset(id, hold_ms=None, params=None)` があり、宣言したスロットを `params` で変更できます。
+API の詳細は [SDK の FaceDisplay](https://github.com/Jizai-inc/palmimo-devkit/blob/main/doc/ja/reference/api-reference.md#facedisplay)と
+[エージェントの表示語彙](https://github.com/Jizai-inc/palmimo-devkit/blob/main/doc/ja/reference/api-reference.md#エージェントの表示語彙)を、
+宣言の全体は[マニフェストの仕様](https://github.com/Jizai-inc/palmimo-devkit/blob/main/doc/ja/reference/app-manifest.md#ディスプレイのアセット)を参照してください。
 
 ## 2. DevKit へのインストール（アップロード）
 
